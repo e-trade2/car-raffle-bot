@@ -1,0 +1,18 @@
+# Dependencies
+node_modules/
+
+# Secrets - never commit the real .env (BOT_TOKEN, etc).
+# .env.example stays tracked as the template.
+.env
+.env.local
+.env.*.local
+
+# Logs
+npm-debug.log*
+*.log
+
+# OS/editor cruft
+.DS_Store
+.vscode/
+.idea/
+*.swp
