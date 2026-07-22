@@ -1,4 +1,5 @@
 require('dotenv').config();
+const express = require('express');
 const TelegramBot = require('node-telegram-bot-api');
 
 if (!process.env.BOT_TOKEN) {
@@ -18,36 +19,24 @@ if (!/^https:\/\//.test(process.env.MINI_APP_URL)) {
   throw new Error('MINI_APP_URL must start with https:// - Telegram requires HTTPS for Mini Apps');
 }
 
-const PORT = process.env.PORT;
-// Render (and most PaaS hosts) auto-inject the service's own public URL as
-// RENDER_EXTERNAL_URL - if that's present, we're running deployed there and
-// should use webhooks instead of polling, since free-tier Web Services on
-// Render only stay alive by responding to incoming HTTP requests (a
-// long-polling process that never opens a port looks "unhealthy" to them
-// and gets killed/restarted, and free tier can't run a always-on worker at
-// all). Locally, that variable doesn't exist, so this falls back to the
-// simpler polling mode with no config needed for local testing.
-// WEBHOOK_URL can be set explicitly to override this (e.g. deploying
-// somewhere that doesn't set RENDER_EXTERNAL_URL).
-const WEBHOOK_URL = process.env.WEBHOOK_URL || process.env.RENDER_EXTERNAL_URL;
-
-let bot;
-if (WEBHOOK_URL) {
-  if (!PORT) {
-    throw new Error('PORT is required for webhook mode (Render sets this automatically - if running elsewhere, set it manually)');
-  }
-  // The bot token in the path acts as a shared secret so random internet
-  // traffic hitting this URL can't spoof fake Telegram updates - only
-  // someone who already has the bot token (i.e. Telegram itself, using the
-  // URL we register below) can hit the right path.
-  const webhookPath = `/bot${process.env.BOT_TOKEN}`;
-  bot = new TelegramBot(process.env.BOT_TOKEN, { webHook: { port: PORT } });
-  bot.setWebHook(`${WEBHOOK_URL}${webhookPath}`)
-    .then(() => console.log(`✅ Webhook registered: ${WEBHOOK_URL}${webhookPath}`))
-    .catch(err => console.error('Failed to register webhook:', err.message));
-} else {
-  bot = new TelegramBot(process.env.BOT_TOKEN, { polling: true });
+// Two ways to receive updates from Telegram:
+//   - polling: the bot sits in a loop asking Telegram "anything new?" -
+//     simple, needs zero public URL, but needs a process running
+//     continuously. That's a "Background Worker" on hosts like Render,
+//     which usually isn't on the free tier.
+//   - webhook: Telegram POSTs updates to us only when something actually
+//     happens - this is just an ordinary web server, so it runs as a
+//     regular free Web Service instead.
+// WEBHOOK_URL being set is what decides which mode to use, so local dev
+// (no public URL, and polling "just works" without touching anything)
+// stays exactly as simple as before, while a real deployment sets one
+// extra env var to switch modes - no code change needed either way.
+const useWebhook = !!process.env.WEBHOOK_URL;
+if (useWebhook && !/^https:\/\//.test(process.env.WEBHOOK_URL)) {
+  throw new Error('WEBHOOK_URL must start with https:// - Telegram requires HTTPS for webhooks');
 }
+
+const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: !useWebhook });
 
 // Store user language (temporary; replace with database later)
 const userLang = new Map();
@@ -225,9 +214,42 @@ bot.on("contact", async (msg) => {
   }
 });
 
-// Error handlers - only the mode actually in use will ever fire, but both
-// are wired up so a mistaken/future mode switch doesn't silently drop errors.
+// Error handler (only fires in polling mode - webhook mode has no polling
+// loop to error out of; delivery failures there show up as failed webhook
+// calls in Telegram's own dashboard instead).
 bot.on("polling_error", console.error);
-bot.on("webhook_error", console.error);
 
-console.log(`✅ Getachew Fikadu Ekub Bot is running... (${WEBHOOK_URL ? 'webhook' : 'polling'} mode)`);
+if (useWebhook) {
+  const app = express();
+  app.use(express.json());
+
+  // The bot token doubles as the secret path segment here - this is
+  // Telegram's own recommended pattern (see their webhook docs), since the
+  // token is already a secret we're keeping safe, and it means a random
+  // POST to some guessed URL can't inject fake updates into the bot.
+  const webhookPath = `/telegram-webhook/${process.env.BOT_TOKEN}`;
+  app.post(webhookPath, (req, res) => {
+    bot.processUpdate(req.body);
+    res.sendStatus(200);
+  });
+
+  // Somewhere to point an uptime checker (or just your own browser) to
+  // confirm the process is actually up - Telegram never calls this route.
+  app.get('/', (req, res) => res.send('Getachew Fikadu Ekub Bot - webhook mode'));
+
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, async () => {
+    try {
+      await bot.setWebHook(`${process.env.WEBHOOK_URL}${webhookPath}`);
+      console.log(`✅ Getachew Fikadu Ekub Bot is running (webhook mode) on port ${PORT}`);
+    } catch (err) {
+      // Don't let a failed setWebHook call leave the process silently
+      // listening-but-not-actually-registered with Telegram - that's a
+      // "why is nothing responding" trap that's hard to spot later.
+      console.error('Failed to register webhook with Telegram:', err.message);
+      process.exit(1);
+    }
+  });
+} else {
+  console.log("✅ Getachew Fikadu Ekub Bot is running (polling mode)...");
+}
