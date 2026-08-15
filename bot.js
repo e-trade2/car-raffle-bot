@@ -74,9 +74,9 @@ const TEXT = {
   },
 
   openApp: {
-    om: "🚗 Getachew Fikadu app",
-    am: "🚗 ጌታቸው ፍቃዱ መተግበሪያ",
-    en: "🚗 Getachew Fikadu app",
+    om: "3 🚗 Getachew Fikadu app",
+    am: "3 🚗 ጌታቸው ፍቃዱ መተግበሪያ",
+    en: "3 🚗 Getachew Fikadu app",
   },
 
   ownPhoneOnly: {
