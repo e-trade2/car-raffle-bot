@@ -53,9 +53,9 @@ const TEXT = {
   },
 
   sharePhone: {
-    om: "📱 Lakkoofsa Bilbilaa Qoodi",
-    am: "📱 ስልኬን አጋራ",
-    en: "📱 Share my phone"
+    om: "2 📱 Lakkoofsa Bilbilaa Qoodi",
+    am: "2 📱 ስልኬን አጋራ",
+    en: "2 📱 Share my phone"
   },
 
   phoneConfirmed: {
