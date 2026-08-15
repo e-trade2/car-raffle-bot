@@ -95,9 +95,9 @@ bot.onText(/\/start/, (msg) => {
       parse_mode: "Markdown",
       reply_markup: {
         inline_keyboard: [
-          [{ text: "🇪🇹 Afaan Oromo", callback_data: "lang_om" }],
-          [{ text: "🇪🇹 አማርኛ", callback_data: "lang_am" }],
-          [{ text: "🇬🇧 English", callback_data: "lang_en" }]
+          [{ text: "1 🇪🇹 Afaan Oromo", callback_data: "lang_om" }],
+          [{ text: "1 🇪🇹 አማርኛ", callback_data: "lang_am" }],
+          [{ text: "1 🇬🇧 English", callback_data: "lang_en" }]
         ]
       }
     }
